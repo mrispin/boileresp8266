@@ -79,7 +79,8 @@ void setup() {
     
     server.begin();
     Serial.println("HTTP server started");
-    
+
+    MDNS.addService("http", "tcp", 80);    
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -129,6 +130,7 @@ void loop() {
   }
   client.loop();
   server.handleClient();
+  MDNS.update();
 }
 
 void httpRoot() {
