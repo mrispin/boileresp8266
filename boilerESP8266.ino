@@ -136,9 +136,9 @@ void loop() {
 void httpRoot() {
   http_requests++;
   if (digitalRead(BOILER_PIN)==1){
-    server.send(200, "text/plain", "Boiler is ON");
+    server.send(200, "text/plain", "Boiler is ON\n");
   } else {
-    server.send(200, "text/plain", "Boiler is OFF");
+    server.send(200, "text/plain", "Boiler is OFF\n");
   }
 }
 
