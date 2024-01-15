@@ -3,6 +3,11 @@
 #include <ESP8266mDNS.h>
 #include <PolledTimeout.h>
 #include <DHT.h>
+// NTP Requirements start
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include <TimeLib.h>
+// NTP Requirements end
 #include "secrets.h"
 
 #define BAUDRATE 9600
@@ -30,11 +35,21 @@ int http_404s=0;
 //temp
 DHT dht(DHT11_PIN, DHTTYPE);
 
+// network services
 WiFiClient espClient;
 ESP8266WebServer server(80);
 
+//ntp
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
+
+
 float temp=0.0;
 float humidity=0.0;
+
+//logging
+void log(const String message);
+void printTimestamp();
 
 // defs for http uri handlers
 void httpRoot();
@@ -113,6 +128,9 @@ void setup() {
     //start temp
     dht.begin();
 
+    //start ntp
+    timeClient.begin();
+
     //Turn off setup LEDs
     digitalWrite(LED_MCU, HIGH);
     digitalWrite(LED_ESP, HIGH);
@@ -131,6 +149,7 @@ void setup() {
 void loop() {
   server.handleClient();
   MDNS.update();
+  timeClient.update();
   
   static esp8266::polledTimeout::periodicMs timeout(UPDATE_CYCLE);
   if (timeout.expired()) {
@@ -140,13 +159,28 @@ void loop() {
     humidity=0.0;
     temp = dht.readTemperature();
     humidity = dht.readHumidity();
-    Serial.print(F("Temperature: "));
+    printTimestamp();
+    Serial.print(F(" - Temperature: "));
     Serial.print(temp);
     Serial.print(F("°C  Humidity: "));
     Serial.print(humidity);
     Serial.println(F("%"));
     digitalWrite(LED_MCU, HIGH);
   }
+}
+
+void printTimestamp() {
+  setTime(static_cast<time_t>(timeClient.getEpochTime()));
+  char timestamp[20];
+  snprintf( timestamp, 20, "%04d-%02d-%02d %02d:%02d:%02d",
+    year(),
+    month(),
+    day(),
+    hour(),
+    minute(),
+    second()
+  );
+  Serial.print(timestamp);
 }
 
 void printHttpClientRequest() {
