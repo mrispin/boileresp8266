@@ -24,6 +24,7 @@
 
 const char* ssid     = SECRET_SSID;
 const char* password = SECRET_WIFIPASS;
+const char* host_name = SECRET_HOSTNAME;
 
 // vars for metrics
 int wifi_disconnects=0;
@@ -48,7 +49,7 @@ float temp=0.0;
 float humidity=0.0;
 
 //logging
-void log(const String message);
+void log(const String message, const String level = "INFO");
 void printTimestamp();
 
 // defs for http uri handlers
@@ -63,14 +64,11 @@ void WiFiEvent(WiFiEvent_t event) {
 
     switch(event) {
         case WIFI_EVENT_STAMODE_GOT_IP:
-            Serial.println();
-            Serial.println("WiFi connected");
-            Serial.print("IP address: ");
-            Serial.println(WiFi.localIP());
+            log("Wifi connected.");
+            log(WiFi.localIP().toString());
             break;
         case WIFI_EVENT_STAMODE_DISCONNECTED:
-            Serial.println();
-            Serial.println("WiFi lost connection");
+            log("WiFi lost connection", "WARN");
             wifi_disconnects++;
             break;
     }
@@ -92,27 +90,31 @@ void setup() {
 
     //Wifi setup
     WiFi.mode(WIFI_STA);
-    Serial.println();
-    Serial.print("Connecting to wifi");
+    log("Connecting to wifi");
     WiFi.onEvent(WiFiEvent);
+    WiFi.hostname(host_name);
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED)
     {
       digitalWrite(LED_ESP, HIGH);
       delay(250);
-      Serial.print(".");
       digitalWrite(LED_ESP, LOW);
       delay(250);
     }
 
+    //start ntp
+    log("Starting NTP Client");
+    timeClient.begin();
+    timeClient.update();
+
+
     //mDNS setup
-    if (MDNS.begin("boiler")) {     // Start the mDNS responder for boiler.local
-      Serial.println("mDNS responder started");
-    } else {
-      Serial.println("Error setting up mDNS responder!");
-    }
+    log("Starting mDNS server");
+    MDNS.begin("boiler");  // Start the mDNS responder for boiler.local
+
     
     // Initialize web server
+    log("Starting web server");
     server.on("/", httpRoot);
     server.on("/health", httpHealth);
     server.on("/metrics", httpMetrics);
@@ -120,17 +122,15 @@ void setup() {
     server.onNotFound(httpNotFound);
     
     server.begin();
-    Serial.println("HTTP server started");
 
     //Advertise http
     MDNS.addService("http", "tcp", 80);
 
     //start temp
+    log("Starting temperature monitor");
     dht.begin();
 
-    //start ntp
-    timeClient.begin();
-
+    
     //Turn off setup LEDs
     digitalWrite(LED_MCU, HIGH);
     digitalWrite(LED_ESP, HIGH);
@@ -159,12 +159,11 @@ void loop() {
     humidity=0.0;
     temp = dht.readTemperature();
     humidity = dht.readHumidity();
-    printTimestamp();
-    Serial.print(F(" - Temperature: "));
-    Serial.print(temp);
-    Serial.print(F("°C  Humidity: "));
-    Serial.print(humidity);
-    Serial.println(F("%"));
+    char msg[100];
+    snprintf(msg,100,"Temperature: %.1f°C  Humidity: %.1f%%",
+      temp,
+      humidity);
+    log(msg);
     digitalWrite(LED_MCU, HIGH);
   }
 }
@@ -182,20 +181,30 @@ void printTimestamp() {
   );
   Serial.print(timestamp);
 }
+void log(const String message, const String level) {
+  printTimestamp();
+  Serial.print(F(" - "));
+  Serial.print(level);
+  Serial.print(F(" - "));
+  Serial.println(message);
+  
+}
 
 void printHttpClientRequest() {
-  Serial.print("Received ");
+  String request_type;
   switch (server.method()) {
     case HTTP_GET:
-      Serial.print("GET");
+      request_type = "GET";
       break;
     case HTTP_POST:
-      Serial.print("POST");
+      request_type = "POST";
       break;
   }
-  Serial.print(" request from ");
-  Serial.println(server.client().remoteIP().toString());
-  
+  char clientIP[16];
+  server.client().remoteIP().toString().toCharArray(clientIP,16);
+  char msg[100];
+  snprintf(msg, 100, "Received %s request from %s", request_type, clientIP);
+  log(msg);
 }
 
 void httpRoot() {
