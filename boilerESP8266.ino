@@ -3,8 +3,9 @@
 #include <ESP8266mDNS.h>
 #include <PolledTimeout.h>
 #include <DHT.h>
+#include "secrets.h"
 
-#define BAUDRATE 74880
+#define BAUDRATE 9600
 
 #define UPDATE_CYCLE        (10 * 1000)      // every 10 seconds
 
@@ -16,8 +17,8 @@
 #define LED_ESP 2
 #define LED_MCU 16
 
-const char* ssid     = "sensor";
-const char* password = "1234567890abcdef";
+const char* ssid     = SECRET_SSID;
+const char* password = SECRET_WIFIPASS;
 
 // vars for metrics
 int wifi_disconnects=0;
