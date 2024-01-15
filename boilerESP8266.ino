@@ -44,9 +44,13 @@ ESP8266WebServer server(80);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
-
+// temp sensor
 float temp=0.0;
 float humidity=0.0;
+
+// boiler control
+int boilerOnSeconds=0;
+
 
 //logging
 void log(const String message, const String level = "INFO");
@@ -105,8 +109,13 @@ void setup() {
     //start ntp
     log("Starting NTP Client");
     timeClient.begin();
-    timeClient.update();
-
+    while(!timeClient.isTimeSet()) {
+      timeClient.update();
+      digitalWrite(LED_ESP, HIGH);
+      delay(500);
+      digitalWrite(LED_ESP, LOW);
+      delay(500);      
+    }
 
     //mDNS setup
     log("Starting mDNS server");
@@ -136,15 +145,6 @@ void setup() {
     digitalWrite(LED_ESP, HIGH);
 }
 
-/*  // Switch on the LED if an 1 was received as first character
-  if ((char)payload[0] == '1') {
-    digitalWrite(BOILER_PIN, HIGH);   // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is acive low on the ESP-01)
-  } else {
-    digitalWrite(BOILER_PIN, LOW);  // Turn the LED off by making the voltage HIGH
-  }
-*/
 
 void loop() {
   server.handleClient();
